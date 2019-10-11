@@ -60,6 +60,26 @@ ggplot(dat, aes(getting.sharing.data)) + #x=factor(getting.sharing.data)
   xlab("Your time spent getting data you need") 
 ``` 
 
+(They also spent a comparable amount of time cleaning that data, including reformatting it from traditional Excel frames to make it machine-readable), and then trying to understand the data and then relay that understanding to others: 
+
+```{r}
+names(poll) 
+ggplot(dat, aes(cleaning.data)) + #x=factor(getting.sharing.data)
+  geom_bar(stat="count", width=0.7, fill="red") +
+  coord_flip() +
+  theme_minimal() + 
+  ylab("Number of responses") + 
+  xlab("Share of time spent wrangling data") + 
+  scale_y_continuous(breaks=c(0,5,10,15))
+ggplot(dat, aes(understanding.explaining.data)) + #x=factor(getting.sharing.data)
+  geom_bar(stat="count", width=0.7) +#, fill="orange") +
+  coord_flip() +
+  theme_minimal() + 
+  ylab("Number of responses") + 
+  xlab("Share of time spent understanding and explaining the data") + 
+  scale_y_continuous(breaks=c(0,5,10,15)) 
+```
+
 So what's that cost (reflected in dollars), assuming we can value their time at roughly their salary? 
 
 For amount of our time spent getting data, be conservative and use numbers at the lower bound for each category. (If we were to add up all the how-much-of-your-time-is-spent categories, most respondents' summed responses would be over 100% - so take the responses as indicators, not hard numbers.)
@@ -75,13 +95,16 @@ dat$loss = dat$trouble.getting.sharing * (dat$salary * 1.5)
 sum(dat$loss) * (26/25) 
 ```
 
-So of 26 people who responded we spend around $800,000 just looking and getting data. 
-Respondents' average salary is in the ballpark regarding the average salary for the agency, without doing any filtering and cleaning :
+So the 26 people who responded spend around $800,000 of the agency's money annually just looking around for, identifying and getting data. 
+
+Respondents' average salary is in the ballpark regarding the average salary for the agency, without doing any filtering and cleaning ... 
 
 ```{r}
 summary(dat$salary) 
 pay.clean = na.omit(pay) 
 summary(pay.clean$salary) 
+hist(dat$salary) 
+hist(pay.clean$salary) 
 ```
 
 ... although the full agency salary list obviously includes hundreds of people who aren't here for a full year or are somehow otherwise charged for a fraction of a year of work. So the average, after removing those people, would be about the same. 
@@ -94,3 +117,5 @@ options(warn=0)
 ```
 
 Ballpark - somewhere north of $20 million a year.
+
+The assumptions taken above represent a high-level attempt to concentualize the poll results using basic assumptions. Some of those assumptions may change following a bit more thought, but this discussion aims to offer value as a starting point regarding the potential value — to the agency — of rationalizing data management and governance. 
