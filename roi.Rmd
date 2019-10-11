@@ -1,0 +1,96 @@
+---
+title: "Lost Time: The Data Bloodhound's Story"
+author: "Data Analytics User Group"
+date: "10/11/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Data sets: survey and employee database 2019 Q1
+If we have the DAWGs survey including the names of those who submitted and their salaries, how much of their time do they spend collecting, finding and sharing data and what's that worth? 
+
+Load the two data sets: 
+
+```{r echo=TRUE}
+cat("\014") # clear the console
+rm(list=ls())
+options(warn=-1)
+
+library(stringr) 
+library(ggplot2) 
+
+setwd("~/Dropbox/Work and research/Port Authority/roi/roi") 
+pay = read.csv("./Q1_employee_payroll_2019.csv", skip=1) 
+poll = read.csv("./Poll.csv") 
+names(pay) = tolower(names(pay)) 
+names(poll) = tolower(names(poll)) 
+```
+
+```{r echo=FALSE}
+poll$name = tolower(poll$name) 
+nom = as.data.frame(str_split_fixed(poll$name, " ", 2)); names(nom) = c("first","last") 
+poll = cbind(poll,nom)
+poll$full = paste(poll$first,poll$last,sep="_") 
+poll$full = gsub(" ", "", poll$full, fixed = TRUE)
+
+pay$name = tolower(pay$name) 
+nom = as.data.frame(str_split_fixed(pay$name, ",", 2)); names(nom) = c("last", "first")  
+pay = cbind(pay,nom) 
+pay$full = paste(pay$first,pay$last,sep="_") 
+pay$full = gsub(" ", "", pay$full, fixed = TRUE)
+pay$salary = as.numeric(gsub(",", "", pay$annual.rate, fixed = TRUE))
+
+dat = merge(poll,pay, by="full") 
+```
+
+The respondents (n=26) reported spending a decent chunk of their collective time searching for data: 
+
+```{r}
+table(poll$on.average..how.much.time.do.you.spend.getting.the.data.you.need.) 
+ggplot(dat, aes(getting.sharing.data)) + #x=factor(getting.sharing.data)
+  geom_bar(stat="count", width=0.7, fill="steelblue") +
+  coord_flip() +
+  theme_minimal() + 
+  ylab("Number of responses") + 
+  xlab("Your time spent getting data you need") 
+``` 
+
+So what's that cost (reflected in dollars), assuming we can value their time at roughly their salary? 
+
+For amount of our time spent getting data, be conservative and use numbers at the lower bound for each category. (If we were to add up all the how-much-of-your-time-is-spent categories, most respondents' summed responses would be over 100% - so take the responses as indicators, not hard numbers.)
+
+Also add a round 50 percent to their salary to account for benefits. 
+
+```{r echo=TRUE}
+dat$trouble.getting.sharing = ifelse(dat$getting.sharing.data=="1-20%",.05,
+                          ifelse(dat$getting.sharing.data=="21-40%",.21,
+                          ifelse(dat$getting.sharing.data=="41-60%",.41,
+                          ifelse(dat$getting.sharing.data=="61-80%",.61,.81))))
+dat$loss = dat$trouble.getting.sharing * (dat$salary * 1.5) 
+sum(dat$loss) * (26/25) 
+```
+
+So of 26 people who responded we spend around $800,000 just looking and getting data. 
+Respondents' average salary is in the ballpark regarding the average salary for the agency, without doing any filtering and cleaning :
+
+```{r}
+summary(dat$salary) 
+pay.clean = na.omit(pay) 
+summary(pay.clean$salary) 
+```
+
+... although the full agency salary list obviously includes hundreds of people who aren't here for a full year or are somehow otherwise charged for a fraction of a year of work. So the average, after removing those people, would be about the same. 
+
+So if the average person at the agency uses data only 10 percent as frequently as we do, how much does the agency spend looking for and getting data? 
+
+```{r echo=TRUE}
+(sum(pay.clean$salary)*1.5)*mean(dat$trouble.getting.sharing)*.1
+options(warn=0)
+```
+
+Ballpark - somewhere north of $20 million a year.
