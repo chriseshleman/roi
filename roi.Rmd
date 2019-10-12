@@ -23,6 +23,9 @@ options(warn=-1)
 
 library(stringr) 
 library(ggplot2) 
+library(reshape2) 
+library(gridExtra)
+library(grid)
 
 setwd("~/Dropbox/Work and research/Port Authority/roi/roi") 
 pay = read.csv("./Q1_employee_payroll_2019.csv", skip=1) 
@@ -45,7 +48,13 @@ pay$full = paste(pay$first,pay$last,sep="_")
 pay$full = gsub(" ", "", pay$full, fixed = TRUE)
 pay$salary = as.numeric(gsub(",", "", pay$annual.rate, fixed = TRUE))
 
+poll$poll = "Polled"
+pay$poll = "Not_polled" 
+
+pay = na.omit(pay) 
+
 dat = merge(poll,pay, by="full") 
+dat_all = merge(poll, pay, by="full", all.y=T) 
 ```
 
 The respondents (n=26) reported spending a decent chunk of their collective time searching for data: 
@@ -57,65 +66,111 @@ ggplot(dat, aes(getting.sharing.data)) + #x=factor(getting.sharing.data)
   coord_flip() +
   theme_minimal() + 
   ylab("Number of responses") + 
-  xlab("Your time spent getting data you need") 
+  xlab("Share of time spent") + 
+  ggtitle("Your time spent getting\ndata you need") + 
+  theme(plot.title = element_text(vjust = - 10, hjust = 1)) 
 ``` 
 
-(They also spent a comparable amount of time cleaning that data, including reformatting it from traditional Excel frames to make it machine-readable), and then trying to understand the data and then relay that understanding to others: 
+Analysis can also require significant cleaning ... 
 
-```{r}
-names(poll) 
+```{r echo=FALSE}
 ggplot(dat, aes(cleaning.data)) + #x=factor(getting.sharing.data)
   geom_bar(stat="count", width=0.7, fill="red") +
   coord_flip() +
   theme_minimal() + 
   ylab("Number of responses") + 
-  xlab("Share of time spent wrangling data") + 
-  scale_y_continuous(breaks=c(0,5,10,15))
+  xlab("Share of time spent") + 
+  scale_y_continuous(breaks=c(0,5,10,15)) + 
+  ggtitle("Your time spent wrangling\ndata you have/get") + 
+  theme(plot.title = element_text(vjust = - 10, hjust = 1)) 
+```
+
+... and research to understand the data and relay that understanding to others. 
+
+```{r echo=FALSE}
 ggplot(dat, aes(understanding.explaining.data)) + #x=factor(getting.sharing.data)
   geom_bar(stat="count", width=0.7) +#, fill="orange") +
   coord_flip() +
   theme_minimal() + 
   ylab("Number of responses") + 
-  xlab("Share of time spent understanding and explaining the data") + 
-  scale_y_continuous(breaks=c(0,5,10,15)) 
+  xlab("Share of time spent") + 
+  scale_y_continuous(breaks=c(0,5,10,15)) + 
+  ggtitle("Your time spent understanding\nor explaining data") +
+  theme(plot.title = element_text(vjust = - 10, hjust = 1)) 
+
+dat_wide = dat[c("full", "understanding.explaining.data", "cleaning.data")]
+dat_long = melt(dat_wide, id.vars=c("full")) 
+
+#ggplot(dat_long, aes(value)) + 
+#  geom_bar(stat="count", width=0.7, fill=variable) 
+
+#table(dat$understanding.explaining.data) 
+#table(dat$cleaning.data) 
+#ggplot(dat_long, aes(value, fill = variable)) +
+#  geom_bar(position = "dodge")
 ```
 
-So what's that cost (reflected in dollars), assuming we can value their time at roughly their salary? 
+So what's that cost (reflected in dollars), assuming we can value their time at roughly their salary plus benefits? 
 
-For amount of our time spent getting data, be conservative and use numbers at the lower bound for each category. (If we were to add up all the how-much-of-your-time-is-spent categories, most respondents' summed responses would be over 100% - so take the responses as indicators, not hard numbers.)
+For time spent getting data, be conservative and use numbers at or near the lower bound of each category. (If we were to add up all the how-much-of-your-time-is-spent categories, most respondents' summed responses would be over 100% - so take the responses as indicators, not hard numbers.) When someone reported spending between 1 percent and 20 percent of her time getting data, assume 5 percent; when someone reported psending between 21 percent and 40 percent of her time getting data, go with 21 percent, and stick to the bottom of each bin moving upward. 
 
-Also add a round 50 percent to their salary to account for benefits. 
+Also add a round 40 percent to their salary to account for benefits. 
 
 ```{r echo=TRUE}
 dat$trouble.getting.sharing = ifelse(dat$getting.sharing.data=="1-20%",.05,
                           ifelse(dat$getting.sharing.data=="21-40%",.21,
                           ifelse(dat$getting.sharing.data=="41-60%",.41,
                           ifelse(dat$getting.sharing.data=="61-80%",.61,.81))))
-dat$loss = dat$trouble.getting.sharing * (dat$salary * 1.5) 
+dat$loss = dat$trouble.getting.sharing * (dat$salary * 1.4) 
 sum(dat$loss) * (26/25) 
 ```
 
-So the 26 people who responded spend around $800,000 of the agency's money annually just looking around for, identifying and getting data. 
+The 26 people who responded spend around $800,000 of the agency's money annually just looking around for, identifying and getting data sets. This can include external data sets but also data internal to the agency but housed outside an analyst's immediate reach. 
 
-Respondents' average salary is in the ballpark regarding the average salary for the agency, without doing any filtering and cleaning ... 
+(By the way, the 26 respondents' average salary is generally close to the average salary for the agency, without doing any filtering and cleaning ... 
 
 ```{r}
 summary(dat$salary) 
-pay.clean = na.omit(pay) 
-summary(pay.clean$salary) 
-hist(dat$salary) 
-hist(pay.clean$salary) 
+summary(pay$salary) 
 ```
 
-... although the full agency salary list obviously includes hundreds of people who aren't here for a full year or are somehow otherwise charged for a fraction of a year of work. So the average, after removing those people, would be about the same. 
+... particularly recognizing that the full agency salary list obviously includes hundreds of people who aren't here for a full year, or are somehow otherwise charged for a fraction of a year of work. So the averages, after removing those people, would be about the same.) 
 
-So if the average person at the agency uses data only 10 percent as frequently as we do, how much does the agency spend looking for and getting data? 
+One more assumption: if the average person at the agency uses data only around 10 percent as frequently as the 26 respondents do, how much does the agency spend looking for and getting data in total? 
 
 ```{r echo=TRUE}
-(sum(pay.clean$salary)*1.5)*mean(dat$trouble.getting.sharing)*.1
-options(warn=0)
+a = (sum(pay$salary)*1.4)*mean(dat$trouble.getting.sharing)*.1
 ```
 
 Ballpark - somewhere north of $20 million a year.
 
-The assumptions taken above represent a high-level attempt to concentualize the poll results using basic assumptions. Some of those assumptions may change following a bit more thought, but this discussion aims to offer value as a starting point regarding the potential value — to the agency — of rationalizing data management and governance. 
+What about the challenge of managing or interpreting and explaining data? 
+
+```{r echo=FALSE}
+dat$understanding.explaining = ifelse(dat$understanding.explaining.data=="1-20%",.05,
+                          ifelse(dat$understanding.explaining.data=="21-40%",.21,
+                          ifelse(dat$understanding.explaining.data=="41-60%",.41,
+                   ifelse(dat$understanding.explaining.data=="61-80%",.61,.81))))
+dat$loss2 = dat$understanding.explaining * (dat$salary * 1.4) 
+sum(dat$loss2) * (26/25) 
+dat$cleaning = ifelse(dat$cleaning.data=="1-20%",.05,
+                          ifelse(dat$cleaning.data=="21-40%",.21,
+                          ifelse(dat$cleaning.data=="41-60%",.41,
+                   ifelse(dat$cleaning.data=="61-80%",.61,.81))))
+dat$loss3 = dat$cleaning * (dat$salary * 1.4) 
+sum(dat$loss3) * (26/25) 
+```
+
+```{r}
+b = (sum(pay$salary)*1.4)*mean(dat$understanding.explaining)*.1
+c = (sum(pay$salary)*1.4)*mean(dat$cleaning)*.1
+options(warn=0)
+```
+
+
+```{r}
+#d = head(iris[,1:3]) 
+#grid.table(d) 
+```
+
+The assumptions taken above are meant to aid in a first, high-level attempt at contextualizing the poll results Some of those assumptions would undoubtedly change following a bit more thought, but hopefully this offers value as a starting point regarding the potential value to the agency of rationalizing data management practices and advancing its data governance framework. 
